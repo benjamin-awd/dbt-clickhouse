@@ -77,20 +77,6 @@ class ClickHouseRelation(BaseRelation):
             return True
 
     @classmethod
-    def get_on_cluster(
-        cls: Type[Self], cluster: str = '', materialized: str = '', engine: str = ''
-    ) -> bool:
-        if cluster.strip():
-            return (
-                materialized in ('view', 'dictionary')
-                or 'distributed' in materialized
-                or 'Replicated' in engine
-            )
-
-        else:
-            return False
-
-    @classmethod
     def create_from(
         cls: Type[Self],
         quoting: HasQuoting,
@@ -112,21 +98,19 @@ class ClickHouseRelation(BaseRelation):
         # If the database is set, and the source schema is "defaulted" to the source.name, override the
         # schema with the database instead, since that's presumably what's intended for clickhouse
         schema = relation_config.schema
-        can_on_cluster = None
+
         # We placed a hardcoded const (instead of importing it from dbt-core) in order to decouple the packages
         if relation_config.resource_type == NODE_TYPE_SOURCE:
             if schema == relation_config.source_name and relation_config.database:
                 schema = relation_config.database
 
-        else:
-            cluster = quoting.credentials.cluster if quoting.credentials.cluster else ''
-            materialized = (
-                relation_config.config.materialized if relation_config.config.materialized else ''
-            )
-            engine = (
-                relation_config.config.get('engine') if relation_config.config.get('engine') else ''
-            )
-            can_on_cluster = cls.get_on_cluster(cluster, materialized, engine)
+        cluster = quoting.credentials.cluster or ''
+        should_on_cluster = relation_config.config.get("should_on_cluster", True)
+
+        if relation_config.config.get("should_on_cluster") in ("False", "false"):
+            should_on_cluster = False
+
+        can_on_cluster = bool(cluster and should_on_cluster)
 
         return cls.create(
             database='',
