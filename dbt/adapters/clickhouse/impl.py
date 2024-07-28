@@ -54,6 +54,7 @@ class ClickHouseConfig(AdapterConfig):
     order_by: Optional[Union[List[str], str]] = 'tuple()'
     partition_by: Optional[Union[List[str], str]] = None
     sharding_key: Optional[Union[List[str], str]] = 'rand()'
+    should_on_cluster: Optional[bool] = True
     ttl: Optional[Union[List[str], str]] = None
 
 
@@ -165,13 +166,6 @@ class ClickHouseAdapter(SQLAdapter):
             return False
         ch_db = self.get_ch_database(schema)
         return ch_db and ch_db.engine in ('Atomic', 'Replicated')
-
-    @available.parse_none
-    def should_on_cluster(self, materialized: str = '', engine: str = '') -> bool:
-        conn = self.connections.get_if_exists()
-        if conn and conn.credentials.cluster:
-            return ClickHouseRelation.get_on_cluster(conn.credentials.cluster, materialized, engine)
-        return ClickHouseRelation.get_on_cluster('', materialized, engine)
 
     @available.parse_none
     def calculate_incremental_strategy(self, strategy: str) -> str:
